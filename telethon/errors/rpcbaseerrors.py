@@ -1,4 +1,4 @@
-from ..functions import functions
+from ..tl import functions
 
 _NESTS_QUERY = (
     functions.InvokeAfterMsgRequest,
