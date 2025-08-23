@@ -11,20 +11,28 @@ from ..tl import TLObject
 from ..tl.types import (
     MessageEntityBold, MessageEntityItalic, MessageEntityCode,
     MessageEntityPre, MessageEntityTextUrl, MessageEntityMentionName,
-    MessageEntityStrike
+    MessageEntityStrike, MessageEntityUnderline, MessageEntitySpoiler,
+    MessageEntityBlockquote
 )
 
 DEFAULT_DELIMITERS = {
     '**': MessageEntityBold,
     '__': MessageEntityItalic,
+    '++': MessageEntityUnderline,
     '~~': MessageEntityStrike,
     '`': MessageEntityCode,
-    '```': MessageEntityPre
+    '```': MessageEntityPre,
+    '$$': MessageEntitySpoiler,
+    '^^': lambda *a, **k: MessageEntityBlockquote(*a, **k, collapsed=True),
 }
 
-DEFAULT_URL_RE = re.compile(r'\[([^]]*?)\]\(([\s\S]*?)\)')
+DEFAULT_URL_RE = re.compile(r'\[([^\]]+)\]\(([^)]+)\)')
+#DEFAULT_URL_RE = re.compile(r'\[([^]]*?)\]\(([\s\S]*?)\)') #OG
 DEFAULT_URL_FORMAT = '[{0}]({1})'
 
+
+def overlap(a, b, x, y):
+    return max(a, x) < min(b, y)
 
 def parse(message, delimiters=None, url_re=None):
     """

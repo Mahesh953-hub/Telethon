@@ -67,15 +67,29 @@ class InlineBuilder:
                 ``ResultIdDuplicateError``. Consider giving them an explicit
                 ID if you need to send two results that are the same.
     """
+    
     def __init__(self, client):
         self._client = client
 
     # noinspection PyIncorrectDocstring
     async def article(
-            self, title, description=None,
-            *, url=None, thumb=None, content=None,
-            id=None, text=None, parse_mode=(), link_preview=True,
-            geo=None, period=60, contact=None, game=False, buttons=None
+            self, 
+            title, 
+            description=None,
+            *, 
+            url=None, 
+            thumb=None, 
+            content=None,
+            id=None, 
+            text=None, 
+            parse_mode=(), 
+            link_preview=True,
+            geo=None, 
+            period=60, 
+            contact=None, 
+            game=False, 
+            buttons=None,
+            include_media=False
     ):
         """
         Creates new inline result of article type.
@@ -97,6 +111,12 @@ class InlineBuilder:
             content (:tl:`InputWebDocument`, optional):
                 The content to be shown for this result.
                 For now it has to be a :tl:`InputWebDocument` if present.
+            type (`str`, optional):
+                type of the content to use. Defaults to `article`.
+
+            include_media (`bool`, optional):
+                Whether the content used to display the result should be
+                included in the message itself or not. Defaults to `False`.
 
         Example:
             .. code-block:: python
@@ -130,8 +150,12 @@ class InlineBuilder:
             id=id or '',
             type='article',
             send_message=await self._message(
-                text=text, parse_mode=parse_mode, link_preview=link_preview,
-                geo=geo, period=period,
+                text=text, 
+                media=include_media,
+                parse_mode=parse_mode, 
+                link_preview=link_preview,
+                geo=geo, 
+                period=period,
                 contact=contact,
                 game=game,
                 buttons=buttons
@@ -225,11 +249,27 @@ class InlineBuilder:
 
     # noinspection PyIncorrectDocstring
     async def document(
-            self, file, title=None, *, description=None, type=None,
-            mime_type=None, attributes=None, force_document=False,
-            voice_note=False, video_note=False, use_cache=True, id=None,
-            text=None, parse_mode=(), link_preview=True,
-            geo=None, period=60, contact=None, game=False, buttons=None,
+            self, 
+            file, 
+            title=None, 
+            *, 
+            description=None, 
+            type=None,
+            mime_type=None, 
+            attributes=None, 
+            force_document=False,
+            voice_note=False, 
+            video_note=False, 
+            use_cache=True, 
+            id=None,
+            text=None, 
+            parse_mode=(), 
+            link_preview=True,
+            geo=None, 
+            period=60, 
+            contact=None, 
+            game=False, 
+            buttons=None,
             include_media=True
     ):
         """

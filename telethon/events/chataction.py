@@ -1,5 +1,5 @@
 from .common import EventBuilder, EventCommon, name_inner_event
-from .. import utils
+from .. import utils, errors
 from ..tl import types
 
 
@@ -56,6 +56,9 @@ class ChatAction(EventBuilder):
                              kicked_by=True,
                              users=update.user_id)
 
+        elif isinstance(update, types.UpdateBotChatInviteRequester):
+            return cls.Event(update.peer, join_request=update.invite, users=update.user_id)
+
         # UpdateChannel is sent if we leave a channel, and the update._entities
         # set by _process_update would let us make some guesses. However it's
         # better not to rely on this. Rely only in MessageActionChatDeleteUser.
@@ -75,6 +78,8 @@ class ChatAction(EventBuilder):
                 return cls.Event(msg,
                                  added_by=added_by,
                                  users=action.users)
+            elif isinstance(action, types.MessageActionChatJoinedByRequest):
+                return cls.Event(msg, from_request=True, users=msg.from_id)
             elif isinstance(action, types.MessageActionChatDeleteUser):
                 return cls.Event(msg,
                                  kicked_by=utils.get_peer_id(msg.from_id) if msg.from_id else True,
@@ -107,6 +112,8 @@ class ChatAction(EventBuilder):
             elif isinstance(action, types.MessageActionGameScore):
                 return cls.Event(msg,
                                  new_score=action.score)
+            elif isinstance(action, types.MessageActionSetChatTheme):
+                return cls.Event(msg, emoticon=action.emoticon)
 
         elif isinstance(update, types.UpdateChannelParticipant) \
                 and bool(update.new_participant) != bool(update.prev_participant):
@@ -159,11 +166,30 @@ class ChatAction(EventBuilder):
 
             unpin (`bool`):
                 `True` if the existing pin gets unpinned.
+
+            chat_theme (`bool`):
+                `True` if the chat theme is changed.
+
+            emoticon (`str`):
+                The new emoticon kept with `chat_theme`.
         """
 
-        def __init__(self, where, new_photo=None,
-                     added_by=None, kicked_by=None, created=None,
-                     users=None, new_title=None, pin_ids=None, pin=None, new_score=None):
+        def __init__(
+            self, 
+            where, 
+            new_photo=None,
+            added_by=None, 
+            kicked_by=None, 
+            created=None,
+            users=None, 
+            new_title=None, 
+            pin_ids=None, 
+            pin=None, 
+            new_score=None,
+            emoticon=None, 
+            join_request=None, 
+            from_request=None
+        ):
             if isinstance(where, types.MessageService):
                 self.action_message = where
                 where = where.peer_id
@@ -178,16 +204,18 @@ class ChatAction(EventBuilder):
             self._pin_ids = pin_ids
             self._pinned_messages = None
 
+            self.new_join_request = join_request
             self.new_photo = new_photo is not None
             self.photo = \
                 new_photo if isinstance(new_photo, types.Photo) else None
 
             self._added_by = None
             self._kicked_by = None
+            self.from_request = from_request
             self.user_added = self.user_joined = self.user_left = \
                 self.user_kicked = self.unpin = False
 
-            if added_by is True:
+            if added_by is True or from_request is True:
                 self.user_joined = True
             elif added_by:
                 self.user_added = True
@@ -215,35 +243,67 @@ class ChatAction(EventBuilder):
             self.new_title = new_title
             self.new_score = new_score
             self.unpin = not pin
+            self.emoticon = emoticon
+            # below is line done, so that emoticon="" also get considered as chat theme update.
+            # and can be way to trace Chat Theme Disabled.
+            self.chat_theme = True if emoticon != None else False
 
         def _set_client(self, client):
             super()._set_client(client)
             if self.action_message:
                 self.action_message._finish_init(client, self._entities, None)
 
-        async def respond(self, *args, **kwargs):
+        async def respond(self, *args, chunks=False, **kwargs):
             """
             Responds to the chat action message (not as a reply). Shorthand for
             `telethon.client.messages.MessageMethods.send_message` with
             ``entity`` already set.
-            """
-            return await self._client.send_message(
-                await self.get_input_chat(), *args, **kwargs)
 
-        async def reply(self, *args, **kwargs):
+            Arguments:
+                chunks (bool): If True, use send_message_chunks for long messages.
+            """
+            try:
+                return await self._client.send_message(
+                    await self.get_input_chat(), *args, **kwargs)
+            except errors.rpcerrorlist.MessageTooLongError:
+                if chunks:
+                    message = args[0] if args else ''
+                    return await self.send_message_chunks(
+                        await self.get_input_chat(),
+                        message,
+                        *args[1:],
+                        **{k: v for k, v in kwargs.items() if k != 'chunks'}  # Exclude chunks from kwargs
+                    )
+                raise  # Re-raise the exception if chunks is False
+
+        async def reply(self, *args, chunks=False, **kwargs):
             """
             Replies to the chat action message (as a reply). Shorthand for
             `telethon.client.messages.MessageMethods.send_message` with
             both ``entity`` and ``reply_to`` already set.
 
             Has the same effect as `respond` if there is no message.
+
+            Arguments:
+                chunks (bool): If True, use send_message_chunks for long messages.
             """
             if not self.action_message:
-                return await self.respond(*args, **kwargs)
+                return await self.respond(*args, chunks=chunks, **kwargs)
 
             kwargs['reply_to'] = self.action_message.id
-            return await self._client.send_message(
-                await self.get_input_chat(), *args, **kwargs)
+            try:
+                return await self._client.send_message(
+                    await self.get_input_chat(), *args, **kwargs)
+            except errors.rpcerrorlist.MessageTooLongError:
+                if chunks:
+                    message = args[0] if args else ''
+                    return await self.send_message_chunks(
+                        await self.get_input_chat(),
+                        message,
+                        *args[1:],
+                        **{k: v for k, v in kwargs.items() if k != 'chunks'}  # Exclude chunks from kwargs
+                    )
+                raise  # Re-raise the exception if chunks is False
 
         async def delete(self, *args, **kwargs):
             """
@@ -309,6 +369,17 @@ class ChatAction(EventBuilder):
                 self._added_by = await self._client.get_entity(self._added_by)
 
             return self._added_by
+
+        async def approve_user(self, approved: bool = True):
+            """
+            Approve or disapprove chat join request of user.
+             """
+            if self.new_join_request:
+                return await self._client(functions.messages.HideChatJoinRequestRequest(
+                    await self.get_input_chat(),
+                    user_id=self.user_id,
+                    approved=approved
+                ))
 
         @property
         def kicked_by(self):

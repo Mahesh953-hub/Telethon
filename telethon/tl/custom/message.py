@@ -7,6 +7,28 @@ from .forward import Forward
 from .file import File
 from .. import TLObject, types, functions, alltlobjects
 from ... import utils, errors
+from ...extensions import markdown 
+
+# Support for spoiler and custom emoji 
+class CustomMarkdown:
+    @staticmethod
+    def parse(text):
+        text, entities = markdown.parse(text)
+        for i, e in enumerate(entities):
+            if isinstance(e, types.MessageEntityTextUrl):
+                if e.url == 'spoiler':
+                    entities[i] = types.MessageEntitySpoiler(e.offset, e.length)
+                elif e.url.startswith('emoji/'):
+                    entities[i] = types.MessageEntityCustomEmoji(e.offset, e.length, int(e.url.split('/')[1]))
+        return text, entities
+    @staticmethod
+    def unparse(text, entities):
+        for i, e in enumerate(entities or []):
+            if isinstance(e, types.MessageEntityCustomEmoji):
+                entities[i] = types.MessageEntityTextUrl(e.offset, e.length, f'emoji/{e.document_id}')
+            if isinstance(e, types.MessageEntitySpoiler):
+                entities[i] = types.MessageEntityTextUrl(e.offset, e.length, 'spoiler')
+        return markdown.unparse(text, entities)
 
 
 # TODO Figure out a way to have the code generator error on missing fields
@@ -363,8 +385,10 @@ class Message(ChatGetter, SenderGetter, TLObject):
             if self.reply_to.reply_from:
                 if self.reply_to.reply_from.from_id:
                     self._reply_to_sender = entities.get(utils.get_peer_id(self.reply_to.reply_from.from_id))
-
-
+        if hasattr(self, 'topic_id') and self.topic_id is not None:
+            self._topic_id = self.topic_id  # Safely set _topic_id
+        if hasattr(self, 'topic_title') and self.topic_title is not None:
+            self._topic_title = self.topic_title  # Safely set _topic_title
 
     # endregion Initialization
 
@@ -737,6 +761,23 @@ class Message(ChatGetter, SenderGetter, TLObject):
         return self.peer_id
 
     # endregion Public Properties
+    @property
+    def message_link(self):
+#        if isinstance(self.chat, types.User):
+#            return
+
+        if hasattr(self.chat, "username") and self.chat.username:
+            return f"https://t.me/{self.chat.username}/{self.id}"
+        if (self.chat and self.chat.id):
+            chat = self.chat.id
+        elif self.chat_id:
+            if str(self.chat_id).startswith("-" or "-100"):
+                chat = int(str(self.chat_id).replace("-100", "").replace("-", ""))
+            else:
+                chat = self.chat_id
+        else:
+            return
+        return f"https://t.me/c/{chat}/{self.id}"
 
     # region Public Methods
 
@@ -807,27 +848,190 @@ class Message(ChatGetter, SenderGetter, TLObject):
                 )
 
         return self._reply_message
-
-    async def respond(self, *args, **kwargs):
+    async def get_topics(self, chat_id: Optional['hints.EntityLike'] = None, limit: int = 10, *args, **kwargs):
         """
-        Responds to the message (not as a reply). Shorthand for
-        `telethon.client.messages.MessageMethods.send_message`
-        with ``entity`` already set.
+        Retrieves forum topics for the specified group or channel.
+
+        Shorthand for `telethon.client.messages.MessageMethods.get_forum_topics`
+        with the entity already set. If no chat_id is provided, uses the message's chat.
+
+        Args:
+            chat_id (Optional['hints.EntityLike']): The chat ID for the group or channel. Default is None.
+            limit (int, optional): The maximum number of topics to retrieve. Default is 10.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            List[forum_topic]: A list of forum topics for the specified chat.
         """
         if self._client:
-            return await self._client.send_message(
-                await self.get_input_chat(), *args, **kwargs)
+            entity = await self._client.get_input_entity(chat_id or self.peer_id)  # Use provided chat_id or fallback
+            return await self._client.get_forum_topics(entity, limit=limit, *args, **kwargs)
 
-    async def reply(self, *args, **kwargs):
+    async def send_topic_message(self, chat_id: Optional['hints.EntityLike'], topic_index: int, message: 'hints.MessageLike', *args, **kwargs):
         """
-        Replies to the message (as a reply). Shorthand for
-        `telethon.client.messages.MessageMethods.send_message`
-        with both ``entity`` and ``reply_to`` already set.
+        Sends a message to a specific topic in the specified group or channel.
+
+        Shorthand for `telethon.client.messages.MessageMethods.send_message_to_topic`
+        with the entity already set.
+
+        Args:
+            chat_id (Optional['hints.EntityLike']): The chat ID for the group or channel. Default is None.
+            topic_index (int): The index of the topic to send the message to.
+            message (hints.MessageLike): The message to send.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            Message: The sent message object.
+        """
+        if self._client:
+            entity = await self._client.get_input_entity(chat_id)  # Use provided chat_id
+            return await self._client.send_message_to_topic(entity, topic_index, message, *args, **kwargs)
+
+
+    async def translate(self, target_language='en'):
+        """
+        Translates the message text to the target language.
+        
+        :param target_language: The language code to translate the message to. Default is 'en' (English).
+        :return: The translated text.
+        """
+        if not self.message and not hasattr(self.media, 'poll'):
+            return None  # No text to translate
+
+        if hasattr(self.media, 'poll'):
+            # Handle translation of poll questions and answers
+            poll = self.media.poll
+            question_text = poll.question.text
+            answers_text = [answer.text.text for answer in poll.answers]
+            
+            # Translate the poll question
+            question_entity = types.TextWithEntities(text=question_text, entities=[])
+            question_translation_request = functions.messages.TranslateTextRequest(
+                peer=None, text=[question_entity], to_lang=target_language
+            )
+            question_translation_response = await self.client(question_translation_request)
+            translated_question = question_translation_response.result[0].text
+            
+            # Translate each poll answer
+            translated_answers = []
+            for answer_text in answers_text:
+                answer_entity = types.TextWithEntities(text=answer_text, entities=[])
+                answer_translation_request = functions.messages.TranslateTextRequest(
+                    peer=None, text=[answer_entity], to_lang=target_language
+                )
+                answer_translation_response = await self.client(answer_translation_request)
+                translated_answers.append(answer_translation_response.result[0].text)
+            
+            # Combine the translated question and answers into a formatted string
+            translated_text = f"Poll Question:\n{translated_question}\n\nPoll Answers:\n"
+            translated_text += "\n".join([f"- {answer}" for answer in translated_answers])
+            return translated_text
+
+        # Regular text message translation
+        text_entity = types.TextWithEntities(text=self.message, entities=[])
+        translation_request = functions.messages.TranslateTextRequest(
+            peer=None, text=[text_entity], to_lang=target_language
+        )
+        translation_response = await self.client(translation_request)
+        translated_text = translation_response.result[0].text
+
+        return translated_text
+
+    async def transcribe(self, target_language=None):
+        """
+        Transcribes the audio message to text and optionally translates it to the target language.
+
+        :param target_language: The language code to translate the transcribed text to. Default is None.
+                            If None, no translation will be performed.
+        :return: The transcribed text.
+        """
+        if not self.media or not isinstance(self.media, types.MessageMediaDocument):
+            return None
+
+        peer = await self.get_input_chat()
+
+        transcribe_request = functions.messages.TranscribeAudioRequest(peer=peer, msg_id=self.id)
+        transcribe_response = await self.client(transcribe_request)
+
+        transcribed_text = transcribe_response.text
+
+        if target_language:
+
+            text_entity = types.TextWithEntities(text=transcribed_text, entities=[])
+            translation_request = functions.messages.TranslateTextRequest(
+                peer=None, text=[text_entity], to_lang=target_language
+            )
+            translation_response = await self.client(translation_request)
+
+            translated_text = translation_response.result[0].text
+
+            return translated_text
+        else:
+            return transcribed_text
+
+    async def respond(self, *args, chunks=False, **kwargs):
+        """
+        Responds to the chat action message (not as a reply). Shorthand for
+        `telethon.client.messages.MessageMethods.send_message` with
+        ``entity`` already set.
+
+        Arguments:
+            chunks (bool): If True, use send_message_chunks for long messages.
+        """
+        if self._client:
+            try:
+                return await self._client.send_message(
+                    await self.get_input_chat(), *args, **kwargs)
+            except errors.rpcerrorlist.MessageTooLongError:
+                if chunks:
+                    # Fallback to send_message_chunks
+                    message = args[0] if args else ''
+                    return await self._client.send_message_chunks(
+                        await self.get_input_chat(),
+                        message,
+                        *args[1:],
+                        **{k: v for k, v in kwargs.items() if k != 'chunks'}  # Exclude chunks from kwargs
+                    )
+                raise  # Re-raise the exception if chunks is False
+
+    async def reply(self, *args, chunks=False, **kwargs):
+        """
+        Replies to the chat action message (as a reply). Shorthand for
+        `telethon.client.messages.MessageMethods.send_message` with
+        both ``entity`` and ``reply_to`` already set.
+
+        Has the same effect as `respond` if there is no message.
+
+        Arguments:
+            chunks (bool): If True, use send_message_chunks for long messages.
         """
         if self._client:
             kwargs['reply_to'] = self.id
-            return await self._client.send_message(
-                await self.get_input_chat(), *args, **kwargs)
+            try:
+                return await self._client.send_message(
+                    await self.get_input_chat(), *args, **kwargs)
+            except errors.rpcerrorlist.MessageTooLongError:
+                if chunks:
+                    # Fallback to send_message_chunks
+                    message = args[0] if args else ''
+                    return await self._client.send_message_chunks(
+                        await self.get_input_chat(),
+                        message,
+                        *args[1:],
+                        **{k: v for k, v in kwargs.items() if k != 'chunks'}  # Exclude chunks from kwargs
+                    )
+                raise  # Re-raise the exception if chunks is False
+
+    async def react(self, *args, **kwargs):
+        """
+        Reacts to the message. Shorthand for
+        `telethon.client.messages.MessageMethods.send_reaction`.
+        """
+        if self._client:
+            return await self._client.send_reaction(
+                self.chat_id, self.id, *args, **kwargs)
 
     async def forward_to(self, *args, **kwargs):
         """

@@ -305,6 +305,15 @@ class TelegramBaseClient(abc.ABC):
             raise TypeError(
                 'The given session must be a str or a Session instance.'
             )
+        # ':' in session.server_address is True if it's an IPv6 address
+        if (not session.server_address or
+                (':' in session.server_address) != use_ipv6):
+            session.set_dc(
+                DEFAULT_DC_ID,
+                DEFAULT_IPV6_IP if self._use_ipv6 else DEFAULT_IPV4_IP,
+                DEFAULT_PORT
+            )
+            session.save()
 
         self.flood_sleep_threshold = flood_sleep_threshold
 
