@@ -59,11 +59,15 @@ Messages
     :nosignatures:
 
     send_message
+    send_message_chunks
+    send_message_to_topic
+    send_reaction
     edit_message
     delete_messages
     forward_messages
     iter_messages
     get_messages
+    get_forum_topics
     pin_message
     unpin_message
     send_read_acknowledge

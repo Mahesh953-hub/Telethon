@@ -19,7 +19,7 @@ from collections import namedtuple
 from mimetypes import guess_extension
 from types import GeneratorType
 
-from .extensions import markdown, html
+from .extensions import markdown, html, markdownv2, markdownv3
 from .helpers import add_surrogate, del_surrogate, strip_text
 from .tl import types
 
@@ -438,9 +438,9 @@ def get_input_media(
         if media.SUBCLASS_OF_ID == 0xfaf846f4:  # crc32(b'InputMedia')
             return media
         elif media.SUBCLASS_OF_ID == 0x846363e0:  # crc32(b'InputPhoto')
-            return types.InputMediaPhoto(media, ttl_seconds=ttl, spoiler=media.spoiler)
+            return types.InputMediaPhoto(media, ttl_seconds=ttl)
         elif media.SUBCLASS_OF_ID == 0xf33fdb68:  # crc32(b'InputDocument')
-            return types.InputMediaDocument(media, ttl_seconds=ttl, spoiler=media.spoiler)
+            return types.InputMediaDocument(media, ttl_seconds=ttl)
     except AttributeError:
         _raise_cast_fail(media, 'InputMedia')
 
@@ -460,6 +460,7 @@ def get_input_media(
     if isinstance(media, types.MessageMediaDocument):
         return types.InputMediaDocument(
             id=get_input_document(media.document),
+            spoiler=media.spoiler,
             ttl_seconds=ttl or media.ttl_seconds
         )
 
@@ -786,6 +787,11 @@ def sanitize_parse_mode(mode):
             return {
                 'md': markdown,
                 'markdown': markdown,
+                'mdv2': markdownv2.Markdown(),  # A custom Parser
+                'v2': markdownv2.Markdown(),
+                'mdv3': markdownv3.MarkdownV3(),  # unified markdown+HTML parser
+                'markdownv3': markdownv3.MarkdownV3(),
+                'v3': markdownv3.MarkdownV3(),
                 'htm': html,
                 'html': html
             }[mode.lower()]
@@ -1094,6 +1100,8 @@ def _rle_encode(string):
                 count = 0
 
             new += bytes([cur])
+    if count != 0:
+        new += b'\0' + bytes([count])
     return new
 
 

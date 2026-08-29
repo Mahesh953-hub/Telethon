@@ -1,8 +1,11 @@
 import asyncio
+from asyncio.tasks import Task
 import collections
+import contextlib
 import struct
 import datetime
 import time
+from typing import Any
 
 from . import authenticator
 from ..extensions.messagepacker import MessagePacker
@@ -70,8 +73,7 @@ class MTProtoSender:
         # pending futures should be cancelled.
         self._user_connected = False
         self._reconnecting = False
-        self._disconnected = helpers.get_running_loop().create_future()
-        self._disconnected.set_result(None)
+        self.__disconnected = None
 
         # We need to join the loops upon disconnection
         self._send_loop_handle = None
@@ -119,6 +121,8 @@ class MTProtoSender:
             DestroyAuthKeyFail.CONSTRUCTOR_ID: self._handle_destroy_auth_key,
         }
 
+        self._reconnect_task: Task[Any] | None = None
+
     # Public API
 
     async def connect(self, connection):
@@ -150,6 +154,12 @@ class MTProtoSender:
         Cleanly disconnects the instance from the network, cancels
         all pending requests, and closes the send and receive loops.
         """
+        if self._reconnect_task:
+            _ = self._reconnect_task.cancel()
+
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._reconnect_task
+
         await self._disconnect()
 
     def send(self, request, ordered=False):
@@ -217,6 +227,13 @@ class MTProtoSender:
         """
         return asyncio.shield(self._disconnected)
 
+    @property
+    def _disconnected(self):
+        if self.__disconnected is None:
+            self.__disconnected = helpers.get_running_loop().create_future()
+            self.__disconnected.set_result(None)
+        return self.__disconnected
+
     # Private methods
 
     async def _connect(self):
@@ -274,7 +291,7 @@ class MTProtoSender:
         # or errors after which the sender cannot continue such
         # as failing to reconnect or any unexpected error.
         if self._disconnected.done():
-            self._disconnected = loop.create_future()
+            self.__disconnected = loop.create_future()
 
         self._log.info('Connection to %s complete!', self._connection)
 
@@ -350,7 +367,8 @@ class MTProtoSender:
         Cleanly disconnects and then reconnects.
         """
         self._log.info('Closing current connection to begin reconnect...')
-        await self._connection.disconnect()
+        if self._connection is not None:
+            await self._connection.disconnect()
 
         await helpers._cancel(
             self._log,
@@ -374,6 +392,9 @@ class MTProtoSender:
         ok = True
         # We're already "retrying" to connect, so we don't want to force retries
         for attempt in retry_range(retries, force_retry=False):
+            if not self._user_connected:
+                ok = False
+                break
             try:
                 await self._connect()
             except (IOError, asyncio.TimeoutError) as e:
@@ -427,7 +448,7 @@ class MTProtoSender:
             # gets stuck.
             # TODO It still gets stuck? Investigate where and why.
             self._reconnecting = True
-            helpers.get_running_loop().create_task(self._reconnect(error))
+            self._reconnect_task = helpers.get_running_loop().create_task(self._reconnect(error))
 
     def _keepalive_ping(self, rnd_id):
         """
@@ -718,6 +739,9 @@ class MTProtoSender:
             elif obj.CONSTRUCTOR_ID == _tl.messages.InvitedUsers.CONSTRUCTOR_ID:
                 obj.updates._self_outgoing = True
                 self._updates_queue.put_nowait(obj.updates)
+            elif obj.CONSTRUCTOR_ID == _tl.messages.ChatInviteJoinResultOk.CONSTRUCTOR_ID:
+                obj.updates._self_outgoing = True
+                self._updates_queue.put_nowait(obj.updates)
 
         except AttributeError:
             pass
@@ -860,7 +884,7 @@ class MTProtoSender:
         # TODO save these salts and automatically adjust to the
         # correct one whenever the salt in use expires.
         self._log.debug('Handling future salts for message %d', message.msg_id)
-        state = self._pending_state.pop(message.msg_id, None)
+        state = self._pending_state.pop(message.obj.req_msg_id, None)
         if state:
             state.future.set_result(message.obj)
 

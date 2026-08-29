@@ -86,11 +86,11 @@ body:
     id: checklist
     attributes:
       label: Checklist
-      description: Read this carefully, we will close and ignore your issue if you skimmed through this.
+      description: Read this carefully, we will close and ignore your issue if you skimmed through this. The development version can be installed with `pip install -U https://github.com/Mahesh953-hub/Telethon-v2/archive/main.zip`.
       options:
         - label: The error is in the library's code, and not in my own.
           required: true
         - label: I have searched for this issue before posting it and there isn't an open duplicate.
           required: true
-        - label: I ran `pip install -U https://github.com/LonamiWebs/Telethon/archive/v1.zip` and triggered the bug in the latest version.
+        - label: I installed and triggered the bug in the development version.
           required: true

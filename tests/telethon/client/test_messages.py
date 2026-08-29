@@ -79,6 +79,6 @@ class TestMessageMethods:
                 force_document=False, thumb=None, buttons=None,
                 clear_draft=False, schedule=None, supports_streaming=False,
                 comment_to=None, background=None, nosound_video=None,
-                send_as=None, message_effect_id=None,
+                send_as=None, message_effect_id=None, rich_message=None,
             )
             assert result == expected_result

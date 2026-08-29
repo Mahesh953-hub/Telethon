@@ -1,5 +1,6 @@
 import inspect
 import itertools
+import re
 import typing
 import warnings
 
@@ -167,7 +168,7 @@ class _MessagesIter(RequestIter):
 
         # When going in reverse we need an offset of `-limit`, but we
         # also want to respect what the user passed, so add them together.
-        if self.reverse:
+        if self.reverse and hasattr(self.request, 'add_offset'):
             self.request.add_offset -= _MAX_CHUNK_SIZE
 
         self.add_offset = add_offset
@@ -176,10 +177,11 @@ class _MessagesIter(RequestIter):
         self.last_id = 0 if self.reverse else float('inf')
 
     async def _load_next_chunk(self):
-        self.request.limit = min(self.left, _MAX_CHUNK_SIZE)
-        if self.reverse and self.request.limit != _MAX_CHUNK_SIZE:
-            # Remember that we need -limit when going in reverse
-            self.request.add_offset = self.add_offset - self.request.limit
+        if hasattr(self.request, 'limit'):
+            self.request.limit = min(self.left, _MAX_CHUNK_SIZE)
+            if self.reverse and self.request.limit != _MAX_CHUNK_SIZE:
+                # Remember that we need -limit when going in reverse
+                self.request.add_offset = self.add_offset - self.request.limit
 
         r = await self.client(self.request)
         self.total = getattr(r, 'count', len(r.messages))
@@ -205,7 +207,7 @@ class _MessagesIter(RequestIter):
             self.buffer.append(message)
 
         # Not a slice (using offset would return the same, with e.g. SearchGlobal).
-        if isinstance(r, types.messages.Messages):
+        if isinstance(r, types.messages.Messages) or not hasattr(self.request, 'limit'):
             return True
 
         # Some channels are "buggy" and may return less messages than
@@ -645,7 +647,9 @@ class MessageMethods:
             comment_to: 'typing.Union[int, types.Message]' = None,
             nosound_video: bool = None,
             send_as: typing.Optional['hints.EntityLike'] = None,
-            message_effect_id: typing.Optional[int] = None
+            message_effect_id: typing.Optional[int] = None,
+            rich_message: 'typing.Optional[types.TypeInputRichMessage]' = None,
+            quick_reply_shortcut: 'typing.Optional[types.TypeInputQuickReplyShortcut]' = None
     ) -> 'types.Message':
         """
         Sends a message to the specified user, chat or channel.
@@ -708,7 +712,7 @@ class MessageMethods:
                 Width/height and dimensions/size ratios may be important.
                 For Telegram to accept a thumbnail, you must provide the
                 dimensions of the underlying media through ``attributes=``
-                with :tl:`DocumentAttributesVideo` or by installing the
+                with :tl:`DocumentAttributeVideo` or by installing the
                 optional ``hachoir`` dependency.
 
             force_document (`bool`, optional):
@@ -777,6 +781,11 @@ class MessageMethods:
 
             message_effect_id (`int`, optional):
                 Unique identifier of the message effect to be added to the message; for private chats only
+
+            rich_message (:tl:`InputRichMessage`, optional):
+                An :tl:`InputRichMessage` (e.g. `InputRichMessageHTML`) to send in place of
+                (or alongside) plain text/entities. Ignored when ``file`` is also given, since
+                that path is handled by `send_file`.
 
         Returns
             The sent `custom.Message <telethon.tl.custom.message.Message>`.
@@ -850,7 +859,8 @@ class MessageMethods:
                 formatting_entities=formatting_entities,
                 comment_to=comment_to, background=background,
                 nosound_video=nosound_video,
-                send_as=send_as, message_effect_id=message_effect_id
+                send_as=send_as, message_effect_id=message_effect_id,
+                rich_message=rich_message
             )
 
         entity = await self.get_input_entity(entity)
@@ -897,15 +907,18 @@ class MessageMethods:
                     message.media, types.MessageMediaWebPage),
                 schedule_date=schedule,
                 send_as=await self.get_input_entity(send_as) if send_as else None,
-                effect=message_effect_id
+                effect=message_effect_id,
+                rich_message=rich_message,
+                quick_reply_shortcut=quick_reply_shortcut
             )
             message = message.message
         else:
             if formatting_entities is None:
                 message, formatting_entities = await self._parse_message_text(message, parse_mode)
-            if not message:
+            if not message and not rich_message:
                 raise ValueError(
-                    'The message cannot be empty unless a file is provided'
+                    'The message cannot be empty unless a file or '
+                    'rich_message is provided'
                 )
 
             request = functions.messages.SendMessageRequest(
@@ -920,10 +933,18 @@ class MessageMethods:
                 reply_markup=self.build_reply_markup(buttons),
                 schedule_date=schedule,
                 send_as=await self.get_input_entity(send_as) if send_as else None,
-                effect=message_effect_id
+                effect=message_effect_id,
+                rich_message=rich_message,
+                quick_reply_shortcut=quick_reply_shortcut
             )
 
-        result = await self(request)
+        try:
+            result = await self(request)
+
+        except errors.rpcerrorlist.AuthKeyPermEmptyError as e:
+            await self._sender._reconnect(e)
+            result = await self(request)
+
         if isinstance(result, types.UpdateShortSentMessage):
             message = types.Message(
                 id=result.id,
@@ -1230,7 +1251,7 @@ class MessageMethods:
             message: 'typing.Union[int, types.Message, types.InputMessageID, str]' = None,
             text: str = None,
             *,
-            parse_mode: str = (),
+            parse_mode: typing.Optional[str] = (),
             attributes: 'typing.Sequence[types.TypeDocumentAttribute]' = None,
             formatting_entities: typing.Optional[typing.List[types.TypeMessageEntity]] = None,
             link_preview: bool = True,
@@ -1239,7 +1260,8 @@ class MessageMethods:
             force_document: bool = False,
             buttons: typing.Optional['hints.MarkupLike'] = None,
             supports_streaming: bool = False,
-            schedule: 'hints.DateLike' = None
+            schedule: 'hints.DateLike' = None,
+            rich_message: 'typing.Optional[types.TypeInputRichMessage]' = None
     ) -> 'types.Message':
         """
         Edits the given message to change its text or media.
@@ -1296,7 +1318,7 @@ class MessageMethods:
                 Width/height and dimensions/size ratios may be important.
                 For Telegram to accept a thumbnail, you must provide the
                 dimensions of the underlying media through ``attributes=``
-                with :tl:`DocumentAttributesVideo` or by installing the
+                with :tl:`DocumentAttributeVideo` or by installing the
                 optional ``hachoir`` dependency.
 
             force_document (`bool`, optional):
@@ -1322,6 +1344,10 @@ class MessageMethods:
 
                 Note that this parameter will have no effect if you are
                 trying to edit a message that was sent via inline bots.
+
+            rich_message (:tl:`InputRichMessage`, optional):
+                An :tl:`InputRichMessage` (e.g. `InputRichMessageHTML`) to replace the
+                message's rich content with.
 
         Returns
             The edited `Message <telethon.tl.custom.message.Message>`,
@@ -1397,7 +1423,8 @@ class MessageMethods:
             entities=formatting_entities,
             media=media,
             reply_markup=self.build_reply_markup(buttons),
-            schedule_date=schedule
+            schedule_date=schedule,
+            rich_message=rich_message
         )
         msg = self._get_response_message(request, await self(request), entity)
         return msg
@@ -1495,9 +1522,9 @@ class MessageMethods:
         """
         entity = await self.get_input_entity(entity)
         try:
-            forum_topics = await self(functions.channels.GetForumTopicsRequest(
-                channel=entity,
-                offset_date=None,
+            forum_topics = await self(functions.messages.GetForumTopicsRequest(
+                peer=entity,
+                offset_date=0,
                 offset_id=0,
                 offset_topic=0,
                 limit=limit,

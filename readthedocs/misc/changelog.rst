@@ -13,6 +13,120 @@ it can take advantage of new goodies!
 
 .. contents:: List of All Versions
 
+New layer (v1.44)
+=================
+
++------------------------+
+| Scheme layer used: 227 |
++------------------------+
+
+`View new and changed raw API methods <https://diff.telethon.dev/?from=224&to=227>`__.
+
+The below changelog also includes some of the fixes made after 1.43.0.
+
+Enhancements
+~~~~~~~~~~~~
+
+* Slight typings improvements.
+* Should no longer time out when dealing with server salts.
+* Should no longer lead to high CPU usage when connection is closed by remote.
+
+
+Support for building with Hatch (v1.43)
+=======================================
+
++------------------------+
+| Scheme layer used: 224 |
++------------------------+
+
+`View new and changed raw API methods <https://diff.telethon.dev/?from=216&to=224>`__.
+
+With ``setup.py`` no longer being the recommended way to go about packaging applications,
+I've followed the ``hatch new --init`` procedure and cleaned up the ``pyproject.toml`` a bit.
+
+The unused ``tox`` configuration has been removed, and a separate ``hatch_build.py`` hook
+will take care of generating the TL types during install.
+
+For now I have no plans to further remove or cleanup the old ``setuptools`` installation method.
+So it should remain possible to use that for as long as it works.
+
+Additions
+~~~~~~~~~
+
+* More RPC error classes.
+* Warning when trying to use a proxy without ``python-socks`` installed.
+* Styles now supported on inline buttons.
+
+Enhancements
+~~~~~~~~~~~~
+
+* No longer hosted on GitHub.
+* The project now has a policy against AI.
+* Some documentation typos have been corrected.
+* Any RPC error should now be treated as a transient error while getting difference.
+* HTML blockquote can now be expandable.
+
+Bug fixes
+~~~~~~~~~
+
+* Python 3.14 compatibility.
+* The library should now be importable without having ``sqlite3`` (again).
+* ``InvalidBufferError`` was not being handled correctly when receiving incomplete data.
+* ``iter_messages`` on scheduled and reverse should no longer crash.
+
+
+New layer (v1.42)
+=================
+
++------------------------+
+| Scheme layer used: 216 |
++------------------------+
+
+`View new and changed raw API methods <https://diff.telethon.dev/?from=214&to=216>`__.
+
+Bug fixes
+~~~~~~~~~
+
+* Fixed support for Python 3.14.
+* Removed potential misuse when downloading files using inferred path.
+
+
+New layer (v1.41)
+=================
+
++------------------------+
+| Scheme layer used: 214 |
++------------------------+
+
+`View new and changed raw API methods <https://diff.telethon.dev/?from=201&to=214>`__.
+
+Additions
+~~~~~~~~~
+
+* ``send_as`` and ``effect`` added to ``send_file``.
+* ``mime_type`` added to ``send_file``.
+* ``tg-emoji`` now works with HTML parse mode.
+* Clicking a button now lets you choose whether to open the browser.
+* Persistent and placeholder buttons.
+* More separate RPC error classes.
+
+Enhancements
+~~~~~~~~~~~~
+
+* Update entities should now be cached to session more reliably.
+* ``utils.get_display_name`` now handles more types.
+* Improved some type hints.
+* Reply properties for stories now behave as expected.
+* ``isal`` can now be used as an optional dependency for faster compression.
+* Potential slight speed improvements to deserialization.
+
+Bug fixes
+~~~~~~~~~
+
+* Library was not saving update sequence from certain updates.
+* Input peer cache should no longer overwrite valid data with min peers.
+* Spoiler for input photos and documents was not being respected.
+
 New layer (v1.40)
 =================
 

@@ -125,7 +125,7 @@ class UploadMethods:
             attributes: 'typing.Sequence[types.TypeDocumentAttribute]' = None,
             thumb: 'hints.FileLike' = None,
             allow_cache: bool = True,
-            parse_mode: str = (),
+            parse_mode: typing.Optional[str] = (),
             formatting_entities: typing.Optional[
                 typing.Union[
                     typing.List[types.TypeMessageEntity], typing.List[typing.List[types.TypeMessageEntity]]
@@ -247,7 +247,7 @@ class UploadMethods:
                 Width/height and dimensions/size ratios may be important.
                 For Telegram to accept a thumbnail, you must provide the
                 dimensions of the underlying media through ``attributes=``
-                with :tl:`DocumentAttributesVideo` or by installing the
+                with :tl:`DocumentAttributeVideo` or by installing the
                 optional ``hachoir`` dependency.
 
 

@@ -13,7 +13,7 @@ from ..tl.types import (
     MessageEntityPre, MessageEntityEmail, MessageEntityUrl,
     MessageEntityTextUrl, MessageEntityMentionName,
     MessageEntityUnderline, MessageEntityStrike, MessageEntityBlockquote,
-    MessageEntityCustomEmoji, TypeMessageEntity
+    MessageEntityCustomEmoji, MessageEntitySpoiler, TypeMessageEntity
 )
 
 
@@ -43,6 +43,8 @@ class HTMLToTelegramParser(HTMLParser):
             EntityType = MessageEntityStrike
         elif tag == 'blockquote':
             EntityType = MessageEntityBlockquote
+            if 'expandable' in attrs:
+                args['collapsed'] = True
         elif tag == 'code':
             try:
                 # If we're in the middle of a <pre> tag, this <code> tag is
@@ -60,7 +62,7 @@ class HTMLToTelegramParser(HTMLParser):
                 EntityType = MessageEntityCode
         elif tag == 'pre':
             EntityType = MessageEntityPre
-            args['language'] = ''
+            args['language'] = attrs.get('language', '') or ''
         elif tag == 'a':
             try:
                 url = attrs['href']
@@ -78,6 +80,10 @@ class HTMLToTelegramParser(HTMLParser):
                     url = None
             self._open_tags_meta.popleft()
             self._open_tags_meta.appendleft(url)
+        elif tag == 'spoiler' or tag == 'tg-spoiler':
+            EntityType = MessageEntitySpoiler
+        elif tag == 'kbd':
+            EntityType = MessageEntityCode
         elif tag == 'tg-emoji':
             try:
                 emoji_id = int(attrs['emoji-id'])
@@ -142,7 +148,10 @@ ENTITY_TO_FORMATTER = {
     MessageEntityCode: ('<code>', '</code>'),
     MessageEntityUnderline: ('<u>', '</u>'),
     MessageEntityStrike: ('<del>', '</del>'),
-    MessageEntityBlockquote: ('<blockquote>', '</blockquote>'),
+    MessageEntityBlockquote: lambda e, _: (
+        '<blockquote expandable>' if e.collapsed else '<blockquote>',
+        '</blockquote>'
+    ),
     MessageEntityPre: lambda e, _: (
         "<pre>\n"
         "    <code class='language-{}'>\n"
@@ -155,6 +164,7 @@ ENTITY_TO_FORMATTER = {
     MessageEntityTextUrl: lambda e, _: ('<a href="{}">'.format(escape(e.url)), '</a>'),
     MessageEntityMentionName: lambda e, _: ('<a href="tg://user?id={}">'.format(e.user_id), '</a>'),
     MessageEntityCustomEmoji: lambda e, _: ('<tg-emoji emoji-id="{}">'.format(e.document_id), '</tg-emoji>'),
+    MessageEntitySpoiler: ('<tg-spoiler>', '</tg-spoiler>'),
 }
 
 
