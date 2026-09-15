@@ -7,8 +7,8 @@ from ..tl import types, custom
 class ButtonMethods:
     @staticmethod
     def build_reply_markup(
-            buttons: 'typing.Optional[hints.MarkupLike]',
-            inline_only: bool = False) -> 'typing.Optional[types.TypeReplyMarkup]':
+            buttons: 'typing.Optional[hints.MarkupLike]'
+    ) -> 'typing.Optional[types.TypeReplyMarkup]':
         """
         Builds a :tl:`ReplyInlineMarkup` or :tl:`ReplyKeyboardMarkup` for
         the given buttons.
@@ -20,14 +20,12 @@ class ButtonMethods:
         the markup very often. Otherwise, it is not necessary.
 
         This method is **not** asynchronous (don't use ``await`` on it).
-        
+
         Arguments
             buttons (`hints.MarkupLike`):
                 The button, list of buttons, array of buttons or markup
                 to convert into a markup.
-            
-            inline_only (`bool`, optional):
-                Whether the buttons **must** be inline buttons only or not.
+
         Example
             .. code-block:: python
 
@@ -83,15 +81,16 @@ class ButtonMethods:
                 is_inline |= inline
                 is_normal |= not inline
 
-                if button.SUBCLASS_OF_ID == 0xbad74a3:  # crc32(b'KeyboardButton')
+                if isinstance(button, (types.KeyboardButton, types.KeyboardInlineButton)):
                     current.append(button)
 
             if current:
-                rows.append(types.KeyboardButtonRow(current))
+                if is_inline:
+                    rows.append(types.KeyboardInlineButtonRow(current))
+                else:
+                    rows.append(types.KeyboardButtonRow(current))
 
         if is_inline and is_normal:
-            raise ValueError('You cannot mix inline with normal buttons')
-        elif is_inline == is_normal and is_normal:
             raise ValueError('You cannot mix inline with normal buttons')
         elif is_inline:
             return types.ReplyInlineMarkup(rows)

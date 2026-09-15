@@ -813,7 +813,7 @@ class DownloadMethods:
         elif isinstance(thumb, int):
             return thumbs[thumb]
         elif isinstance(thumb, str):
-            return next((t for t in thumbs if t.type == thumb), None)
+            return next((t for t in thumbs if getattr(t, 'type', None) == thumb), None)
         elif isinstance(thumb, (types.PhotoSize, types.PhotoCachedSize,
                                 types.PhotoStrippedSize, types.VideoSize)):
             return thumb

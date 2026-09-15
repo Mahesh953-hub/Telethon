@@ -13,6 +13,23 @@ it can take advantage of new goodies!
 
 .. contents:: List of All Versions
 
+New layer (v1.45)
+=================
+
++------------------------+
+| Scheme layer used: 229 |
++------------------------+
+
+`View new and changed raw API methods <https://diff.telethon.dev/?from=227&to=229>`__.
+
+The below changelog also includes some of the fixes made after 1.43.0.
+
+Enhancements
+~~~~~~~~~~~~
+
+* Reconnect attempts should be skipped if disconnected during reconnect task.
+
+
 New layer (v1.44)
 =================
 
