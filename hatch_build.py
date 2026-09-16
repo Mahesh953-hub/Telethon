@@ -34,9 +34,9 @@ class CustomBuildHook(BuildHookInterface):
             sys.path.insert(0, self.root)
 
         from telethon_generator.generators import clean_tlobjects
-        clean_tlobjects(self.root / TLOBJECT_OUT)
-        if (self.root / ERRORS_OUT).is_file():
-            (self.root / ERRORS_OUT).unlink()
+        clean_tlobjects(self.directory / TLOBJECT_OUT)
+        if (self.directory / ERRORS_OUT).is_file():
+            (self.directory / ERRORS_OUT).unlink()
 
     def initialize(self, version: str, build_data: dict[str, Any]) -> None:
         if self.root not in sys.path:
@@ -56,10 +56,12 @@ class CustomBuildHook(BuildHookInterface):
             parse_tl(self.root / file, layer, methods) for file in TLOBJECT_IN_TLS)))
 
         self.clean([])
-        generate_tlobjects(tlobjects, layer, IMPORT_DEPTH, self.root / TLOBJECT_OUT)
-        (self.root / ERRORS_OUT).parent.mkdir(parents=True, exist_ok=True)
-        with (self.root / ERRORS_OUT).open('w') as file:
+        generate_tlobjects(tlobjects, layer, IMPORT_DEPTH, self.directory / TLOBJECT_OUT)
+        (self.directory / ERRORS_OUT).parent.mkdir(parents=True, exist_ok=True)
+        with (self.directory / ERRORS_OUT).open('w') as file:
             generate_errors(errors, file)
+
+        build_data['force_include'][str(self.directory / LIBRARY_DIR)] = str(LIBRARY_DIR)
 
     def finalize(self, version: str, build_data: dict[str, Any], artifact_path: str) -> None:
         self.clean([])

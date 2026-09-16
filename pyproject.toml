@@ -51,6 +51,9 @@ Reference = "https://tl.telethon.dev"
 [tool.hatch.version]
 path = "telethon/version.py"
 
+[tool.hatch.build.targets.wheel]
+packages = ["telethon"]
+
 [tool.hatch.build.targets.sdist]
 include = [
     "/telethon",
