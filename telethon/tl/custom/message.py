@@ -7,6 +7,7 @@ from .forward import Forward
 from .file import File
 from .. import TLObject, types, functions, alltlobjects
 from ... import utils, errors
+from ...extensions import markdown
 
 
 # TODO Figure out a way to have the code generator error on missing fields
@@ -36,6 +37,7 @@ class CustomMarkdown:
                 )
             if isinstance(e, types.MessageEntitySpoiler):
                 entities[i] = types.MessageEntityTextUrl(e.offset, e.length, "spoiler")
+        return text, entities
 
 
 class Message(ChatGetter, SenderGetter, TLObject):

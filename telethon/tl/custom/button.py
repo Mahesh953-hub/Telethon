@@ -49,7 +49,17 @@ class Button:
     def _get_style(style=None, icon=None):
         """
         Returns `KeyboardButtonStyle` by an appropriate mapping.
+
+        ``style`` must be one of ``'primary'`` (blue), ``'danger'`` (red),
+        ``'success'`` (green), or ``None``.
+
+        ``icon`` must be an ``int`` (the document ID of a custom emoji)
+        or ``None``.  Passing a string will raise ``TypeError``.
         """
+        if icon is not None and not isinstance(icon, int):
+            raise TypeError(
+                "icon must be an int (custom emoji document ID), "
+                "not {}".format(type(icon).__name__))
         if style is not None and (not isinstance(style,str) or (style := style.lower()) not in {'primary','danger','success'}):
            raise ValueError("Invalid value. Must be either one of 'primary' (blue) , 'danger' (red) and 'success' (green) , or None")
         return types.KeyboardButtonStyle(**({f'bg_{style}': True,'icon':icon} if style else {'icon': icon}))

@@ -61,7 +61,9 @@ class CustomBuildHook(BuildHookInterface):
         with (self.directory / ERRORS_OUT).open('w') as file:
             generate_errors(errors, file)
 
-        build_data['force_include'][str(self.directory / LIBRARY_DIR)] = str(LIBRARY_DIR)
+        build_data['force_include'][str(self.root / LIBRARY_DIR)] = str(LIBRARY_DIR)
+        build_data['force_include'][str(self.directory / TLOBJECT_OUT)] = str(TLOBJECT_OUT)
+        build_data['force_include'][str(self.directory / ERRORS_OUT)] = str(ERRORS_OUT)
 
     def finalize(self, version: str, build_data: dict[str, Any], artifact_path: str) -> None:
         self.clean([])
