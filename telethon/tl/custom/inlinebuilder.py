@@ -89,7 +89,8 @@ class InlineBuilder:
         contact=None,
         game=False,
         buttons=None,
-        include_media=False
+        include_media=False,
+        type="article"
     ):
         """
         Creates new inline result of article type.
@@ -117,6 +118,9 @@ class InlineBuilder:
             include_media (`bool`, optional):
                 Whether the content used to display the result should be
                 included in the message itself or not. Defaults to `False`.
+
+            type (`str`, optional):
+                The result type sent to Telegram. Defaults to ``"article"``.
 
         Example:
             .. code-block:: python
@@ -148,7 +152,7 @@ class InlineBuilder:
         # voice, document, location, venue, contact, game
         result = types.InputBotInlineResult(
             id=id or "",
-            type="article",
+            type=type,
             send_message=await self._message(
                 text=text,
                 media=include_media,

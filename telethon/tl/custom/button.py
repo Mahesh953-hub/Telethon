@@ -355,3 +355,61 @@ class Button:
         documentation for more information on using games.
         """
         return types.KeyboardInlineButton(text, types.InlineButtonTypeGame(), style=Button._get_style(style, icon))
+
+    @staticmethod
+    def mention(text, user, style=None, icon=None):
+        """
+        Creates a new inline button that opens the given user's profile.
+
+        `user` must be a :tl:`InputUser` (obtainable with
+        ``client.get_input_entity('me')``); a :tl:`User` is accepted too.
+        """
+        try:
+            input_user = utils.get_input_user(user)
+        except TypeError as e:
+            raise ValueError(
+                "user must be an InputUser or a User, not {}; resolve a "
+                "username first with client.get_input_entity()".format(
+                    type(user).__name__)
+            ) from e
+
+        if not isinstance(input_user, types.TypeInputUser):
+            raise ValueError(
+                "user must be an InputUser or a User with a valid access "
+                "hash, got {}".format(type(user).__name__)
+            )
+
+        return types.KeyboardInlineButton(
+            text,
+            types.InputInlineButtonTypeUserProfile(input_user),
+            style=Button._get_style(style, icon)
+        )
+
+    @classmethod
+    def web(cls, text, url, *, resize=None, single_use=None, selective=None,
+            persistent=None, placeholder=None, style=None, icon=None):
+        """
+        Creates a new keyboard button that opens a WebView when pressed.
+
+        ``resize``, ``single_use``, ``selective``, ``persistent`` and
+        ``placeholder`` are documented in `text`.
+        """
+        return cls(
+            types.KeyboardButton(
+                text, types.ButtonTypeSimpleWebView(url),
+                style=cls._get_style(style, icon)),
+            resize=resize,
+            single_use=single_use,
+            selective=selective,
+            persistent=persistent,
+            placeholder=placeholder
+        )
+
+    @staticmethod
+    def web_view(text, url, style=None, icon=None):
+        """
+        Creates a new inline button that opens a WebView when pressed.
+        """
+        return types.KeyboardInlineButton(
+            text, types.InlineButtonTypeWebView(url),
+            style=Button._get_style(style, icon))

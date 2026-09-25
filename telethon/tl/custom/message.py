@@ -9,6 +9,9 @@ from .. import TLObject, types, functions, alltlobjects
 from ... import utils, errors
 from ...extensions import markdown
 
+if TYPE_CHECKING:
+    from ... import hints
+
 
 # TODO Figure out a way to have the code generator error on missing fields
 # Maybe parsing the init function alone if that's possible.
@@ -802,21 +805,24 @@ class Message(ChatGetter, SenderGetter, TLObject):
     # endregion Public Properties
     @property
     def message_link(self):
-        #        if isinstance(self.chat, types.User):
-        #            return
+        """
+        The public ``t.me`` link to this message, or `None` if it cannot
+        be determined.
 
-        if hasattr(self.chat, "username") and self.chat.username:
-            return f"https://t.me/{self.chat.username}/{self.id}"
-        if self.chat and self.chat.id:
-            chat = self.chat.id
-        elif self.chat_id:
-            if str(self.chat_id).startswith("-" or "-100"):
-                chat = int(str(self.chat_id).replace("-100", "").replace("-", ""))
-            else:
-                chat = self.chat_id
-        else:
-            return
-        return f"https://t.me/c/{chat}/{self.id}"
+        Public chats (those with a username) link directly; everything
+        else uses the ``t.me/c/<id>/<message id>`` form, which requires
+        stripping the ``-100`` channel prefix from the peer ID.
+        """
+        if self.chat and getattr(self.chat, 'username', None):
+            return 'https://t.me/{}/{}'.format(self.chat.username, self.id)
+
+        chat_id = self.chat_id
+        if chat_id is None:
+            return None
+
+        # `utils.resolve_id` turns -100XXXXXXXXXX into XXXXXXXXXX.
+        resolved, _ = utils.resolve_id(chat_id)
+        return 'https://t.me/c/{}/{}'.format(resolved, self.id)
 
     # region Public Methods
 
@@ -1052,6 +1058,31 @@ class Message(ChatGetter, SenderGetter, TLObject):
         if self._client:
             return await self._client.send_message(
                 await self.get_input_chat(), *args, **kwargs
+            )
+
+    async def comment(self, *args, **kwargs):
+        """
+        Comments on this message in its channel discussion group. Shorthand
+        for `telethon.client.messages.MessageMethods.send_message` with both
+        ``entity`` and ``comment_to`` already set.
+
+        Only works for messages that are themselves comments.
+        """
+        if self._client:
+            kwargs['comment_to'] = self.id
+            return await self._client.send_message(
+                await self.get_input_chat(), *args, **kwargs
+            )
+
+    async def react(self, *args, **kwargs):
+        """
+        Reacts to this message. Shorthand for
+        `telethon.client.topics.send_reaction` with ``peer`` and ``msg_id``
+        already set.
+        """
+        if self._client:
+            return await self._client.send_reaction(
+                await self.get_input_chat(), self.id, *args, **kwargs
             )
 
     async def reply(self, *args, **kwargs):
