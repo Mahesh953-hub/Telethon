@@ -22,4 +22,9 @@ from .downloads import DownloadMethods
 from .account import AccountMethods
 from .auth import AuthMethods
 from .bots import BotMethods
+from .groupcall import GroupCallMethods  # Group/voice calls
+from .topics import TopicMethods  # Forum topics
+from .pyrogram import PyrogramMethods  # Pyrogram-style aliases
+from .rawrequests import RawRequestMethods  # client.SomeRequest(...)
+from .inspector import TrafficInspectorMethods  # sent/received inspection
 from .telegramclient import TelegramClient
