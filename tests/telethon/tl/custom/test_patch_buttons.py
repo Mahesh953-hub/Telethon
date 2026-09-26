@@ -175,11 +175,14 @@ class TestMessageLink:
 
         assert message.message_link == 'https://t.me/c/1234567890/42'
 
-    def test_private_chat(self):
+    def test_user_dialog_has_no_public_link(self):
+        # `/c/` links address channels and supergroups only. A one-to-one
+        # user dialog has no public form, so report None rather than a
+        # link that resolves to nothing.
         message = make_message(None, peer=types.PeerUser(555))
         message._chat = types.User(id=555, access_hash=1)
 
-        assert message.message_link == 'https://t.me/c/555/42'
+        assert message.message_link is None
 
     def test_uses_resolve_id_not_string_replacement(self):
         # The old `"-100".replace()` approach mangled ordinary chat IDs.

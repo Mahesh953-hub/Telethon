@@ -13,6 +13,7 @@ from . import (
     RawRequestMethods,
     TelegramBaseClient,
     TopicMethods,
+    TrafficInspectorMethods,
     UpdateMethods,
     UploadMethods,
     UserMethods,
@@ -22,15 +23,19 @@ from . import topics as _topics
 
 
 class TelegramClient(
+    # `TrafficInspectorMethods` wraps `_call`, so it must come before
+    # `UserMethods` (which defines it) in the cooperative MRO chain.
+    TrafficInspectorMethods,
     AccountMethods, AuthMethods, DownloadMethods, DialogMethods, ChatMethods,
     BotMethods, MessageMethods, UploadMethods, ButtonMethods, UpdateMethods,
     MessageParseMethods, UserMethods, GroupCallMethods, TopicMethods,
-    PyrogramMethods, RawRequestMethods, TelegramBaseClient
+    PyrogramMethods, RawRequestMethods,
+    TelegramBaseClient
 ):
     # Pyrogram-flavoured aliases for existing Telethon methods.
     read = MessageMethods.send_read_acknowledge
     send_poll = _pyrogram.send_poll
-    send_document = UploadMethods.send_file
+    send_document = _pyrogram.send_document
     send_video = UploadMethods.send_file
     send_voice = UploadMethods.send_file
     send_audio = UploadMethods.send_file

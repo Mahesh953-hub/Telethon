@@ -809,15 +809,25 @@ class Message(ChatGetter, SenderGetter, TLObject):
         The public ``t.me`` link to this message, or `None` if it cannot
         be determined.
 
-        Public chats (those with a username) link directly; everything
-        else uses the ``t.me/c/<id>/<message id>`` form, which requires
-        stripping the ``-100`` channel prefix from the peer ID.
+        Public chats (those with a username) link directly. Private
+        channels and supergroups use the ``t.me/c/<id>/<message id>``
+        form, which requires stripping the ``-100`` channel prefix from
+        the peer ID.
+
+        One-to-one user dialogs have no public link: the ``/c/`` form is
+        only for channels and supergroups, so `None` is returned rather
+        than a link that resolves to nothing.
         """
         if self.chat and getattr(self.chat, 'username', None):
             return 'https://t.me/{}/{}'.format(self.chat.username, self.id)
 
         chat_id = self.chat_id
         if chat_id is None:
+            return None
+
+        # `/c/` links address channels and supergroups. A user peer is a
+        # private dialog and has no such form, so report "no link".
+        if isinstance(self.peer_id, types.PeerUser):
             return None
 
         # `utils.resolve_id` turns -100XXXXXXXXXX into XXXXXXXXXX.

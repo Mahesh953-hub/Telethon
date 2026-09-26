@@ -373,10 +373,20 @@ class Button:
                     type(user).__name__)
             ) from e
 
-        if not isinstance(input_user, types.TypeInputUser):
+        if not isinstance(input_user, types.InputUser):
             raise ValueError(
                 "user must be an InputUser or a User with a valid access "
                 "hash, got {}".format(type(user).__name__)
+            )
+
+        # `get_input_user` accepts a `User` with no access hash and
+        # invents `InputUser(id, access_hash=0)`, which the server rejects
+        # when the button is pressed. Catch that here rather than shipping
+        # a button that silently cannot work.
+        if not getattr(input_user, 'access_hash', None):
+            raise ValueError(
+                "user has no access hash, so this button would not work; "
+                "resolve the user with client.get_input_entity() first"
             )
 
         return types.KeyboardInlineButton(

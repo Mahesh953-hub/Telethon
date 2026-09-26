@@ -30,7 +30,13 @@ _PREFIX = 'telethon.tl.functions.'
 
 
 def _namespace_of(request: type) -> str:
-    return request.__module__.removeprefix(_PREFIX)
+    # Not `str.removeprefix`: that is Python 3.9+, and this project
+    # declares `requires-python = ">=3.5"`, so it would raise
+    # AttributeError at import on an older interpreter.
+    module = request.__module__
+    if module.startswith(_PREFIX):
+        return module[len(_PREFIX):]
+    return module
 
 
 def _build_request_maps() -> typing.Tuple[

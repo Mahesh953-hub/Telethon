@@ -26,4 +26,5 @@ from .groupcall import GroupCallMethods  # Group/voice calls
 from .topics import TopicMethods  # Forum topics
 from .pyrogram import PyrogramMethods  # Pyrogram-style aliases
 from .rawrequests import RawRequestMethods  # client.SomeRequest(...)
+from .inspector import TrafficInspectorMethods  # sent/received inspection
 from .telegramclient import TelegramClient

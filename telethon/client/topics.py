@@ -7,7 +7,7 @@ namespace rather than ``channels``.
 import datetime
 import typing
 
-from .. import utils
+from .. import helpers, utils
 from ..tl import functions, types
 
 if typing.TYPE_CHECKING:
@@ -59,6 +59,11 @@ async def send_reaction(
             types.ReactionEmoji(r) if isinstance(r, str) else r
             for r in reaction
         ]
+        # An empty list means "remove the reaction", which the protocol
+        # expresses as a single `ReactionEmpty`; sending an empty vector
+        # is a different, invalid request.
+        if not reaction:
+            reaction = [types.ReactionEmpty()]
 
     return await self(functions.messages.SendReactionRequest(
         peer=peer, msg_id=msg_id, big=big, reaction=reaction, **kwargs))
@@ -84,9 +89,15 @@ class TopicMethods:
             title: The title of the new topic.
             icon_color: RGB color of the topic icon.
             icon_emoji_id: Custom emoji document ID for the topic icon.
-            random_id: Any random integer, or leave it `None`.
+            random_id: Deduplication id. Leave `None` to have one
+                generated; the underlying request requires a value.
             send_as: The entity to send the topic's first message as.
         """
+        # See `create_group_call`: `None` serialises as a garbage id
+        # rather than raising, so always supply a real one.
+        if random_id is None:
+            random_id = helpers.generate_random_long()
+
         return await self(functions.messages.CreateForumTopicRequest(
             peer=peer,
             title=title,

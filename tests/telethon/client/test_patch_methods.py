@@ -1,4 +1,6 @@
 """Tests for the client methods ported from Telethon-Patch."""
+import inspect
+
 import pytest
 
 from telethon import TelegramClient, utils
@@ -286,9 +288,18 @@ class TestPyrogramAliases:
             assert callable(getattr(TelegramClient, name))
 
     def test_media_aliases_point_at_send_file(self):
-        for name in ('send_document', 'send_video', 'send_voice',
+        for name in ('send_video', 'send_voice',
                      'send_audio', 'send_sticker'):
             assert getattr(TelegramClient, name).__name__ == 'send_file'
+
+    def test_send_document_forces_document_mode(self):
+        # Not a bare alias: it must wrap send_file so images are not
+        # sent as photos under a method named send_document.
+        from telethon.client import pyrogram
+
+        assert TelegramClient.send_document is pyrogram.send_document
+        assert 'force_document' in inspect.getsource(
+            pyrogram.send_document)
 
     @pytest.mark.asyncio
     async def test_set_username(self):
@@ -347,11 +358,17 @@ class TestPyrogramAliases:
     async def test_join_chat_with_username(self):
         from telethon.tl import functions
 
+        # A bare non-numeric string is a username, not an invite hash.
         client = make_client()
+        client.get_entity = _returning(
+            types.Channel(id=1234567890, access_hash=2, title='c',
+                          photo=types.ChatPhotoEmpty(), date=None))
         await client.join_chat('somechannel')
         assert isinstance(client.sent[0],
-                          functions.messages.ImportChatInviteRequest)
+                          functions.channels.JoinChannelRequest)
+        assert client.sent[0].channel.channel_id == 1234567890
 
+        # An explicit '+' prefix is still an invite link.
         client.sent.clear()
         client.get_entity = _returning(
             types.Channel(id=1234567890, access_hash=2, title='c',

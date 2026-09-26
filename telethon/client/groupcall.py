@@ -6,6 +6,7 @@ adapted to the current layer.
 import datetime
 import typing
 
+from .. import helpers
 from ..tl import functions, types
 
 if typing.TYPE_CHECKING:
@@ -31,10 +32,18 @@ class GroupCallMethods:
         Args:
             peer: Chat ID/username of the chat.
             rtmp_stream: Whether to start an RTMP stream.
-            random_id: Any random integer, or leave it `None`.
+            random_id: Deduplication id. Leave `None` to have one
+                generated; the underlying request requires a value.
             title: Title to keep for the voice chat.
             schedule_date: `datetime` object to schedule the call for.
         """
+        # `random_id` is required by the TL request. Passing ``None``
+        # does not raise, it silently serialises as a garbage integer and
+        # the server rejects the call with an opaque error, so generate
+        # one here rather than forwarding the caller's default.
+        if random_id is None:
+            random_id = helpers.generate_random_long()
+
         return await self(functions.phone.CreateGroupCallRequest(
             peer=peer,
             rtmp_stream=rtmp_stream,

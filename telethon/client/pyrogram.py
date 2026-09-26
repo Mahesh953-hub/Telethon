@@ -58,18 +58,24 @@ class PyrogramMethods:
         """
         from .topics import join_chat
 
+        if chat_id is None:
+            raise ValueError("chat_id is required.")
+
         if isinstance(chat_id, str):
             if 't.me/' in chat_id:
-                chat_id = chat_id.rsplit('/', 1)[-1]
+                # A t.me link is only ever an invite link here, and its
+                # hash may or may not carry the leading '+'.
+                return await join_chat(self, hash=chat_id.rsplit('/', 1)[-1]
+                                       .lstrip('+'))
 
             if chat_id.startswith('+'):
                 return await join_chat(self, hash=chat_id[1:])
 
-            if not chat_id.lstrip('-').isdigit():
-                return await join_chat(self, hash=chat_id)
-
-        if chat_id is None:
-            raise ValueError("chat_id is required.")
+            # Otherwise this is a username, not an invite hash. A bare
+            # non-numeric string is ambiguous, so treat it as a username
+            # and let entity resolution decide; guessing "hash" here made
+            # `join_chat('somechannel')` send an ImportChatInviteRequest
+            # instead of joining the channel.
 
         return await join_chat(self, entity=chat_id)
 
@@ -187,3 +193,21 @@ async def send_poll(
 
     return await self._get_response_message(
         None, updates, await self.get_input_entity(chat_id))
+
+
+async def send_document(
+    self: "TelegramClient",
+    chat_id: "hints.EntityLike",
+    document: "hints.FileLike",
+    **kwargs
+) -> "types.Message":
+    """Send a file as a document rather than a photo or video.
+
+    `send_file` picks the media type from the file, so an image passed to
+    it is sent as a photo. A bare alias cannot change that, so this is a
+    real wrapper that forces ``force_document=True``.
+    """
+    from .uploads import UploadMethods
+
+    kwargs.setdefault('force_document', True)
+    return await UploadMethods.send_file(self, chat_id, document, **kwargs)
