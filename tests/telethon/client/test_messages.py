@@ -6,7 +6,13 @@ import pytest
 
 from telethon import TelegramClient
 from telethon.client import MessageMethods
-from telethon.tl.types import PeerChat, MessageMediaDocument, Message, MessageEntityBold
+from telethon.tl.types import (
+    InputRichMessageHTML,
+    PeerChat,
+    MessageMediaDocument,
+    Message,
+    MessageEntityBold,
+)
 
 
 @pytest.mark.asyncio
@@ -21,7 +27,7 @@ async def test_send_message_with_file_forwards_args():
         if name in {'message'}:
             continue  # renamed
 
-        if name in {'link_preview', 'update_stickersets_order', 'quick_reply_shortcut'}:
+        if name in {'link_preview', 'update_stickersets_order', 'quick_reply_shortcut', 'rich_message'}:
             continue  # not applicable to send_file media requests
 
         arguments[name] = value
@@ -45,6 +51,48 @@ async def test_send_message_with_file_forwards_args():
 
 
 class TestMessageMethods:
+    @pytest.mark.asyncio
+    async def test_send_rich_message_through_high_level_api(self):
+        rich_message = InputRichMessageHTML('<b>Rich content</b>')
+        sentinel = object()
+
+        class MockedMessageMethods(MessageMethods):
+            async def __call__(self, request):
+                self.request = request
+                return object()
+
+        client = MockedMessageMethods()
+
+        async def get_input_entity(entity):
+            return entity
+
+        client.get_input_entity = get_input_entity
+        client.build_reply_markup = lambda buttons: None
+        client._get_response_message = lambda request, result, entity: sentinel
+
+        result = await client.send_message(
+            'peer', 'Fallback text', formatting_entities=[], rich_message=rich_message
+        )
+
+        assert result is sentinel
+        assert client.request.message == 'Fallback text'
+        assert client.request.rich_message is rich_message
+
+    @pytest.mark.asyncio
+    async def test_rich_message_is_rejected_for_media_sends(self):
+        client = MessageMethods()
+
+        async def get_input_entity(entity):
+            return entity
+
+        client.get_input_entity = get_input_entity
+
+        with pytest.raises(ValueError, match='rich_message is not supported'):
+            await client.send_message(
+                'peer', '', file='photo.jpg',
+                rich_message=InputRichMessageHTML('<b>Rich content</b>'),
+            )
+
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
         'formatting_entities',

@@ -654,7 +654,8 @@ class MessageMethods:
             quick_reply_shortcut: typing.Optional['TypeInputQuickReplyShortcut'] = None,
             message_effect_id: typing.Optional[int] = None,
             allow_paid_stars: typing.Optional[int] = None,
-            suggested_post: typing.Optional['TypeSuggestedPost'] = None
+            suggested_post: typing.Optional['TypeSuggestedPost'] = None,
+            rich_message: typing.Optional['types.TypeInputRichMessage'] = None
     ) -> 'types.Message':
         """
         Sends a message to the specified user, chat or channel.
@@ -811,6 +812,15 @@ class MessageMethods:
             suggested_post (`TypeSuggestedPost`, optional):
                 Sending suggested post a channels.
 
+            rich_message (`types.TypeInputRichMessage`, optional):
+                Protocol-native rich message payload, such as
+                :tl:`InputRichMessageHTML` or :tl:`InputRichMessageMarkdown`.
+                This is sent directly in the ``rich_message`` field and is
+                independent of ``parse_mode`` and ``formatting_entities``.
+                The regular ``message`` text remains required.
+                This option is not supported with ``file`` because
+                :tl:`messages.sendMedia` has no ``rich_message`` field.
+
         Returns
             The sent `custom.Message <telethon.tl.custom.message.Message>`.
 
@@ -866,11 +876,20 @@ class MessageMethods:
                 await client.send_message(chat, 'Reply to me', buttons=Button.force_reply())
                 await client.send_message(chat, 'Bye Keyboard!', buttons=Button.clear())
 
+                # Send a protocol-native rich message (separate from parse_mode)
+                from telethon.tl import types
+                await client.send_message(
+                    chat, 'A plain-text fallback for the rich payload.',
+                    rich_message=types.InputRichMessageHTML(
+                        '<b>Rich HTML</b> message'))
+
                 # Scheduling a message to be sent after 5 minutes
                 from datetime import timedelta
                 await client.send_message(chat, 'Hi, future!', schedule=timedelta(minutes=5))
         """
         if file is not None:
+            if rich_message is not None:
+                raise ValueError('rich_message is not supported when sending a file')
             if isinstance(message, types.Message):
                 formatting_entities = formatting_entities or message.entities
                 message = message.message
@@ -940,7 +959,8 @@ class MessageMethods:
                 send_as=await self.get_input_entity(send_as) if send_as else None,
                 effect=message_effect_id,
                 allow_paid_stars=allow_paid_stars,
-                suggested_post=suggested_post
+                suggested_post=suggested_post,
+                rich_message=rich_message
             )
             message = message.message
         else:
@@ -969,7 +989,8 @@ class MessageMethods:
                 send_as=await self.get_input_entity(send_as) if send_as else None,
                 effect=message_effect_id,
                 allow_paid_stars=allow_paid_stars,
-                suggested_post=suggested_post
+                suggested_post=suggested_post,
+                rich_message=rich_message
             )
 
         result = await self(request)
