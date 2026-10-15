@@ -169,7 +169,7 @@ async def send_poll(
         solution, None)
 
     updates = await self(functions.messages.SendMediaRequest(
-        peer=chat_id,
+        peer=await self.get_input_entity(chat_id),
         media=types.InputMediaPoll(
             poll=types.Poll(
                 id=0,
@@ -191,7 +191,7 @@ async def send_poll(
         schedule_date=schedule
     ))
 
-    return await self._get_response_message(
+    return self._get_response_message(
         None, updates, await self.get_input_entity(chat_id))
 
 

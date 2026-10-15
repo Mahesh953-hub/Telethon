@@ -431,7 +431,7 @@ class TestSendPoll:
         async def get_input_entity(entity):
             return types.InputPeerChat(chat_id=entity)
 
-        async def get_response_message(request, result, input_chat):
+        def get_response_message(request, result, input_chat):
             return result
 
         async def parse(text, mode):
@@ -445,6 +445,8 @@ class TestSendPoll:
 
         request = client.sent[0]
         assert isinstance(request, functions.messages.SendMediaRequest)
+        assert isinstance(request.peer, types.InputPeerChat)
+        assert request.peer.chat_id == 5
         poll = request.media.poll
         assert isinstance(poll.question, types.TextWithEntities)
         assert poll.question.text == 'Why?'
@@ -461,7 +463,7 @@ class TestSendPoll:
         async def get_input_entity(entity):
             return types.InputPeerChat(chat_id=entity)
 
-        async def get_response_message(request, result, input_chat):
+        def get_response_message(request, result, input_chat):
             return result
 
         async def parse(text, mode):
@@ -486,7 +488,7 @@ class TestSendPoll:
         async def get_input_entity(entity):
             return types.InputPeerChat(chat_id=entity)
 
-        async def get_response_message(request, result, input_chat):
+        def get_response_message(request, result, input_chat):
             return result
 
         async def parse(text, mode):

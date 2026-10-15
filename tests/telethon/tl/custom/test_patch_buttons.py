@@ -38,6 +38,23 @@ class TestButtonMention:
             Button.mention('Profile', 'just-a-username')
 
 
+class TestInlineButtonStyle:
+    @pytest.mark.parametrize(('style', 'flag'), [
+        ('primary', 'bg_primary'),
+        ('danger', 'bg_danger'),
+        ('success', 'bg_success'),
+    ])
+    def test_inline_button_sets_requested_background_style(self, style, flag):
+        button = Button.inline('Test', style=style)
+
+        assert isinstance(button, types.KeyboardInlineButton)
+        assert getattr(button.style, flag) is True
+
+    def test_inline_button_rejects_unknown_style(self):
+        with pytest.raises(ValueError):
+            Button.inline('Test', style='purple')
+
+
 class TestButtonWeb:
     def test_web_builds_a_keyboard_button(self):
         button = Button.web('Open', 'https://example.com')
