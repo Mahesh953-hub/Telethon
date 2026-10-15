@@ -21,8 +21,8 @@ async def test_send_message_with_file_forwards_args():
         if name in {'message'}:
             continue  # renamed
 
-        if name in {'link_preview'}:
-            continue  # make no sense in send_file
+        if name in {'link_preview', 'update_stickersets_order', 'quick_reply_shortcut'}:
+            continue  # not applicable to send_file media requests
 
         arguments[name] = value
 
@@ -77,8 +77,11 @@ class TestMessageMethods:
                 formatting_entities=formatting_entities or message.entities,
                 reply_to=None, silent=None, attributes=None, parse_mode=(),
                 force_document=False, thumb=None, buttons=None,
-                clear_draft=False, schedule=None, supports_streaming=False,
+                clear_draft=False, noforwards=False, invert_media=False,
+                allow_paid_floodskip=False, schedule_repeat_period=None,
+                schedule=None, supports_streaming=False,
                 comment_to=None, background=None, nosound_video=None,
-                send_as=None, message_effect_id=None, rich_message=None,
+                send_as=None, message_effect_id=None, allow_paid_stars=None,
+                suggested_post=None,
             )
             assert result == expected_result

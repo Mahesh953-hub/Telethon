@@ -204,3 +204,50 @@ Account
 
     takeout
     end_takeout
+
+
+Fork Extensions
+---------------
+
+.. py:currentmodule:: telethon.client.telegramclient.TelegramClient
+
+.. autosummary::
+    :nosignatures:
+
+    clear_traffic_log
+    create_group_call
+    create_topic
+    disable_traffic_log
+    discard_group_call
+    edit_topic
+    enable_traffic_log
+    get_chat
+    get_group_call
+    get_topics
+    get_users
+    join_chat
+    join_group_call
+    leave_chat
+    leave_group_call
+    pin_chat_message
+    read
+    resolve_peer
+    run
+    send_audio
+    send_document
+    send_poll
+    send_sticker
+    send_video
+    send_voice
+    set_chat_username
+    set_contact_photo
+    set_profile_photo
+    set_traffic_log
+    set_username
+    toggle_hidden
+    traffic_as_json
+    traffic_report
+    traffic_summary
+    traffic_to_file
+    unpin_chat_message
+    vote_poll
