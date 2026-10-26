@@ -6,6 +6,7 @@ import warnings
 from .. import helpers, utils, errors, hints
 from ..requestiter import RequestIter
 from ..tl import types, functions
+from ..tl.patched.richmessage import SendMessageWithRichRequest
 
 _MAX_CHUNK_SIZE = 100
 
@@ -909,6 +910,12 @@ class MessageMethods:
                 suggested_post=suggested_post
             )
 
+        request_class = functions.messages.SendMessageRequest
+        rich_message_kwargs = {}
+        if rich_message is not None:
+            request_class = SendMessageWithRichRequest
+            rich_message_kwargs = {'rich_message': rich_message}
+
         entity = await self.get_input_entity(entity)
         if comment_to is not None:
             entity, reply_to = await self._get_comment_data(entity, comment_to)
@@ -940,7 +947,7 @@ class MessageMethods:
                     send_as=send_as, message_effect_id=message_effect_id
                 )
 
-            request = functions.messages.SendMessageRequest(
+            request = request_class(
                 peer=entity,
                 message=message.message or '',
                 silent=silent,
@@ -960,7 +967,7 @@ class MessageMethods:
                 effect=message_effect_id,
                 allow_paid_stars=allow_paid_stars,
                 suggested_post=suggested_post,
-                rich_message=rich_message
+                **rich_message_kwargs
             )
             message = message.message
         else:
@@ -971,7 +978,7 @@ class MessageMethods:
                     'The message cannot be empty unless a file is provided'
                 )
 
-            request = functions.messages.SendMessageRequest(
+            request = request_class(
                 peer=entity,
                 message=message,
                 entities=formatting_entities,
@@ -990,7 +997,7 @@ class MessageMethods:
                 effect=message_effect_id,
                 allow_paid_stars=allow_paid_stars,
                 suggested_post=suggested_post,
-                rich_message=rich_message
+                **rich_message_kwargs
             )
 
         result = await self(request)

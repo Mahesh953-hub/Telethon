@@ -8,6 +8,7 @@ from telethon import TelegramClient
 from telethon.client import MessageMethods
 from telethon.tl.types import (
     InputRichMessageHTML,
+    InputPeerSelf,
     PeerChat,
     MessageMediaDocument,
     Message,
@@ -77,6 +78,38 @@ class TestMessageMethods:
         assert result is sentinel
         assert client.request.message == 'Fallback text'
         assert client.request.rich_message is rich_message
+        assert client.request.CONSTRUCTOR_ID == 0xfef48f62
+        client.request.peer = InputPeerSelf()
+        encoded = client.request._bytes()
+        assert int.from_bytes(encoded[:4], 'little') == 0xfef48f62
+        assert int.from_bytes(encoded[4:8], 'little') & (1 << 23)
+        assert encoded.endswith(rich_message._bytes())
+
+    @pytest.mark.asyncio
+    async def test_regular_send_uses_layer_233_request(self):
+        sentinel = object()
+
+        class MockedMessageMethods(MessageMethods):
+            async def __call__(self, request):
+                self.request = request
+                return object()
+
+        client = MockedMessageMethods()
+
+        async def get_input_entity(entity):
+            return entity
+
+        client.get_input_entity = get_input_entity
+        client.build_reply_markup = lambda buttons: None
+        client._get_response_message = lambda request, result, entity: sentinel
+
+        result = await client.send_message(
+            'peer', 'Plain text', formatting_entities=[]
+        )
+
+        assert result is sentinel
+        assert client.request.CONSTRUCTOR_ID == 0x545cd15a
+        assert not hasattr(client.request, 'rich_message')
 
     @pytest.mark.asyncio
     async def test_rich_message_is_rejected_for_media_sends(self):

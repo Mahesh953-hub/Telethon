@@ -61,10 +61,9 @@ class TestButtonWeb:
 
         assert button.resize is None
         markup = markup_of(button)
-        assert isinstance(markup.button, types.KeyboardButton)
+        assert isinstance(markup.button, types.KeyboardButtonSimpleWebView)
         assert markup.button.text == 'Open'
-        assert isinstance(markup.button.type, types.ButtonTypeSimpleWebView)
-        assert markup.button.type.url == 'https://example.com'
+        assert markup.button.url == 'https://example.com'
 
     def test_web_forwards_markup_options(self):
         button = Button.web('Open', 'https://example.com', resize=True,
@@ -89,6 +88,18 @@ class TestButtonWeb:
         assert isinstance(button.type, types.InlineButtonTypeWebView)
         assert button.type.url == 'https://example.com'
         assert Button._is_inline(button)
+
+
+class TestReplyKeyboardVariants:
+    @pytest.mark.parametrize(('factory', 'variant'), [
+        (lambda: Button.text('Text'), types.KeyboardButton),
+        (lambda: Button.request_phone('Phone'), types.KeyboardButtonRequestPhone),
+        (lambda: Button.request_location('Location'), types.KeyboardButtonRequestGeoLocation),
+        (lambda: Button.request_poll('Poll'), types.KeyboardButtonRequestPoll),
+        (lambda: Button.web('Web', 'https://example.com'), types.KeyboardButtonSimpleWebView),
+    ])
+    def test_reply_keyboard_helpers_use_layer_233_variants(self, factory, variant):
+        assert isinstance(factory().button, variant)
 
 
 def markup_of(button):
